@@ -62,6 +62,10 @@ local liveTags = {
         - Learn more about information/context shared between sessions
         - Add ATT&CK and other context to alert
         - Include full ECC crypo suite comparison (e.g. full secp mapping: secp-384, full prime mapping, etc.)
+
+    COMMENTS
+
+        - All TLS 1.3 traffic inspected thus far has resulted in a handshake equal to one of the TLS versions in setCallbacks
 --]]
 
 local nwll=require("nwll")
