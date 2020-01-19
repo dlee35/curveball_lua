@@ -5,10 +5,10 @@ local tlsParser = nw.createParser(parserName, "CVE-2020-0601 (curveball) inspect
 
 -- nw.logInfo(parserName .. " " .. parserVersion)
 local parserDetails = [=[
-Attempts to identify attempts against CVE-2020-0601.
+Attempts to identify exploits against CVE-2020-0601.
 
 Checks for proper ECC curve use after validating the TLS handshake
-and that the session is using an ECC cryptography suite.
+and that the session is using a known ECC cryptography suite.
 
 A notional alertID (nw999999) is sent if the traffic patterns match.
 ]=]
@@ -53,6 +53,7 @@ local liveTags = {
 --[[
     VERSION
 
+        2020.01.19.1  dustin lee      11.4 ?         added ECC curves (NIST, Prime, Brainpool). need to parse them someday.
         2020.01.18.1  dustin lee      11.4 ?         learning how to lua and borrowing from Bill's Parser book
 
     TODO
@@ -61,11 +62,7 @@ local liveTags = {
         - Map to actual NW alertID
         - Learn more about information/context shared between sessions
         - Add ATT&CK and other context to alert
-        - Include full ECC crypo suite comparison (e.g. full secp mapping: secp-384, full prime mapping, etc.)
-
-    COMMENTS
-
-        - All TLS 1.3 traffic inspected thus far has resulted in a handshake equal to one of the TLS versions in setCallbacks
+        - Bitshift hex comparisons to extend beyond uint32
 --]]
 
 local nwll=require("nwll")
@@ -181,9 +178,23 @@ local secpSuites = ({
     [0x23] = "SECP521"
 })
 
+local primeBase = ({
+    [0x3D0301] = "PRIME"
+})
+
 local primeSuites = ({
-    [0x3D030101] = "PRIME192",
-    [0x3D030107] = "PRIME256"
+    [0x01] = "PRIME192",
+    [0x07] = "PRIME256"
+})
+
+local brainpoolBase = ({
+    [0x02080101] = "BRAINPOOL"
+})
+
+local brainpoolSuites = ({
+    [0x07] = "BRAINPOOLP256r1",
+    [0x0B] = "BRAINPOOLP384r1",
+    [0x0D] = "BRAINPOOLP512r1"
 })
 
 function tlsParser:sessionBegin()
@@ -247,7 +258,7 @@ end
 function tlsParser:eccCrypto(token, first, last)
     local status, error = pcall(function(token, first, last)
         local payload = nw.getPayload(last + 3, last + 7)
-        if payload and payload:len() == 5 then
+        if payload and payload:len() == 5 then -- plan to use the last byte for additional inspection in the future
             if self.sessionVars.isECC and not eccSuites[payload:int32()] then
                 self:registerMeta(self.keys["alert.id"], "nw999999")
                 nw.logInfo("potential CVE-2020-0601 curveball attempt!")
